@@ -3,7 +3,6 @@
   "version": "1.0.0",
   "description": "A powerful, intuitive IPTV streaming app supporting M3U playlists, EPG, and multiple streaming protocols",
   "main": "dist/main/main.js",
-  "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
