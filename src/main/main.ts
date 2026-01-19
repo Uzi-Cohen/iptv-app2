@@ -37,7 +37,8 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false // Allow CORS for external IPTV streams
+      webSecurity: false, // Allow CORS for external IPTV streams
+      allowRunningInsecureContent: true // Allow HTTP streams
     },
     icon: path.join(__dirname, '../../assets/icon.png')
   });
