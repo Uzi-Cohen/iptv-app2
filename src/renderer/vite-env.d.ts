@@ -37,6 +37,9 @@ interface Window {
     // Settings
     getSettings: () => Promise<Settings>;
     setSettings: (settings: Partial<Settings>) => Promise<void>;
+
+    // Import progress
+    onImportProgress: (callback: (data: { status: string; percent: number }) => void) => () => void;
   };
 }
 

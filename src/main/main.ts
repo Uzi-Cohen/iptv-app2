@@ -84,7 +84,18 @@ function setupIpcHandlers(): void {
     // Check if this is an Xtream Codes URL
     if (xtreamService.isXtreamUrl(url)) {
       console.log('Detected Xtream Codes URL, using Xtream API');
-      return await xtreamService.importXtreamPlaylist(url);
+
+      // Set up progress callback to send to renderer
+      xtreamService.setProgressCallback((status, percent) => {
+        mainWindow?.webContents.send('import:progress', { status, percent });
+      });
+
+      const result = await xtreamService.importXtreamPlaylist(url);
+
+      // Clear the callback
+      xtreamService.setProgressCallback(null);
+
+      return result;
     }
     // Standard M3U playlist
     return await playlistService.importPlaylist(url);

@@ -38,7 +38,14 @@ contextBridge.exposeInMainWorld('api', {
 
   // Settings
   getSettings: () => ipcRenderer.invoke('settings:get'),
-  setSettings: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:set', settings)
+  setSettings: (settings: Record<string, unknown>) => ipcRenderer.invoke('settings:set', settings),
+
+  // Import progress listener
+  onImportProgress: (callback: (data: { status: string; percent: number }) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, data: { status: string; percent: number }) => callback(data);
+    ipcRenderer.on('import:progress', listener);
+    return () => ipcRenderer.removeListener('import:progress', listener);
+  }
 });
 
 // Type definitions for the exposed API
@@ -65,6 +72,7 @@ export interface ElectronAPI {
   clearHistory: () => Promise<void>;
   getSettings: () => Promise<Settings>;
   setSettings: (settings: Partial<Settings>) => Promise<void>;
+  onImportProgress: (callback: (data: { status: string; percent: number }) => void) => () => void;
 }
 
 interface Playlist {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 interface AddPlaylistModalProps {
   isOpen: boolean;
@@ -20,11 +20,27 @@ export const AddPlaylistModal: React.FC<AddPlaylistModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Progress state
+  const [progressStatus, setProgressStatus] = useState('');
+  const [progressPercent, setProgressPercent] = useState(0);
+
   // Xtream fields
   const [xtreamName, setXtreamName] = useState('');
   const [xtreamHost, setXtreamHost] = useState('');
   const [xtreamUsername, setXtreamUsername] = useState('');
   const [xtreamPassword, setXtreamPassword] = useState('');
+
+  // Listen for progress updates
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const cleanup = window.api.onImportProgress((data) => {
+      setProgressStatus(data.status);
+      setProgressPercent(data.percent);
+    });
+
+    return cleanup;
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -35,6 +51,8 @@ export const AddPlaylistModal: React.FC<AddPlaylistModalProps> = ({
     setXtreamUsername('');
     setXtreamPassword('');
     setError(null);
+    setProgressStatus('');
+    setProgressPercent(0);
   };
 
   const handleClose = () => {
@@ -173,6 +191,22 @@ export const AddPlaylistModal: React.FC<AddPlaylistModalProps> = ({
             </div>
           )}
 
+          {/* Progress bar */}
+          {isLoading && progressPercent > 0 && (
+            <div className="mb-4 p-4 bg-blue-500/10 border border-blue-500/20 rounded-xl">
+              <div className="flex justify-between text-sm mb-2">
+                <span className="text-blue-400">{progressStatus}</span>
+                <span className="text-blue-400 font-mono">{progressPercent}%</span>
+              </div>
+              <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-blue-500 to-purple-600 transition-all duration-300"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+            </div>
+          )}
+
           {/* URL Tab */}
           {activeTab === 'url' && (
             <form onSubmit={handleUrlSubmit}>
@@ -205,7 +239,7 @@ export const AddPlaylistModal: React.FC<AddPlaylistModalProps> = ({
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Importing...
+                    {progressStatus || 'Importing...'}
                   </span>
                 ) : (
                   'Add Playlist'
@@ -298,7 +332,7 @@ export const AddPlaylistModal: React.FC<AddPlaylistModalProps> = ({
                 {isLoading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                    Connecting...
+                    {progressStatus || 'Connecting...'}
                   </span>
                 ) : (
                   'Connect'
