@@ -227,9 +227,17 @@ export class XtreamService {
       console.log(`[Xtream]   Status: ${auth.user_info.status}`);
       console.log(`[Xtream]   Expires: ${new Date(parseInt(auth.user_info.exp_date) * 1000).toLocaleDateString()}`);
 
-      // Get categories
-      console.log('[Xtream] 📁 Fetching categories...');
-      const categories = await this.getLiveCategories(credentials);
+      // Fetch categories and ALL streams in parallel (much faster!)
+      console.log('[Xtream] 📺 Fetching all channels (single request)...');
+      const startFetch = Date.now();
+
+      const [categories, allStreams] = await Promise.all([
+        this.getLiveCategories(credentials),
+        this.getLiveStreams(credentials) // No category = get ALL streams at once
+      ]);
+
+      const fetchTime = ((Date.now() - startFetch) / 1000).toFixed(1);
+      console.log(`[Xtream] ✓ Fetched ${allStreams.length} channels in ${fetchTime}s`);
       console.log(`[Xtream] ✓ Found ${categories.length} categories`);
 
       // Create category map
@@ -237,30 +245,6 @@ export class XtreamService {
       for (const cat of categories) {
         categoryMap.set(cat.category_id, cat.category_name);
       }
-
-      // Fetch streams by category for progress tracking
-      console.log('[Xtream] 📺 Fetching channels by category...');
-      const allStreams: XtreamStream[] = [];
-      const totalCategories = categories.length;
-      const startTime = Date.now();
-
-      for (let i = 0; i < categories.length; i++) {
-        const category = categories[i];
-        const progress = Math.round(((i + 1) / totalCategories) * 100);
-        const progressBar = this.createProgressBar(progress);
-
-        console.log(`[Xtream] ${progressBar} ${progress}% - Loading "${category.category_name}" (${i + 1}/${totalCategories})`);
-
-        try {
-          const streams = await this.getLiveStreams(credentials, category.category_id);
-          allStreams.push(...streams);
-        } catch (err) {
-          console.warn(`[Xtream] ⚠ Failed to load category "${category.category_name}"`);
-        }
-      }
-
-      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
-      console.log(`[Xtream] ✓ Loaded ${allStreams.length} channels in ${elapsed}s`);
 
       // Create playlist
       const playlistId = uuidv4();
@@ -275,38 +259,29 @@ export class XtreamService {
         createdAt: now
       };
 
-      // Convert streams to channels with progress
+      // Convert streams to channels (using map for speed)
       console.log('[Xtream] 🔄 Processing channels...');
-      const channels: Channel[] = [];
-      const totalStreams = allStreams.length;
+      const startProcess = Date.now();
 
-      for (let i = 0; i < allStreams.length; i++) {
-        const stream = allStreams[i];
+      const channels: Channel[] = allStreams.map(stream => ({
+        id: uuidv4(),
+        name: stream.name,
+        url: this.buildStreamUrl(credentials, stream.stream_id),
+        logo: stream.stream_icon || undefined,
+        group: categoryMap.get(stream.category_id) || 'Uncategorized',
+        tvgId: stream.epg_channel_id || undefined,
+        tvgName: stream.name,
+        tvgLogo: stream.stream_icon || undefined,
+        playlistId,
+        isFavorite: false,
+        catchup: stream.tv_archive ? {
+          type: 'default' as const,
+          days: stream.tv_archive_duration || 7,
+          source: undefined
+        } : undefined
+      }));
 
-        // Log progress every 500 channels
-        if (i % 500 === 0 || i === totalStreams - 1) {
-          const progress = Math.round(((i + 1) / totalStreams) * 100);
-          console.log(`[Xtream] Processing: ${i + 1}/${totalStreams} channels (${progress}%)`);
-        }
-
-        channels.push({
-          id: uuidv4(),
-          name: stream.name,
-          url: this.buildStreamUrl(credentials, stream.stream_id),
-          logo: stream.stream_icon || undefined,
-          group: categoryMap.get(stream.category_id) || 'Uncategorized',
-          tvgId: stream.epg_channel_id || undefined,
-          tvgName: stream.name,
-          tvgLogo: stream.stream_icon || undefined,
-          playlistId,
-          isFavorite: false,
-          catchup: stream.tv_archive ? {
-            type: 'default' as const,
-            days: stream.tv_archive_duration || 7,
-            source: undefined
-          } : undefined
-        });
-      }
+      console.log(`[Xtream] ✓ Processed in ${Date.now() - startProcess}ms`);
 
       // Save to storage
       console.log('[Xtream] 💾 Saving to database...');
