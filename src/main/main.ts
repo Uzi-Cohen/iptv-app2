@@ -9,6 +9,10 @@ import { XtreamService } from './services/XtreamService';
 
 // Suppress macOS CoreText font warnings
 app.commandLine.appendSwitch('disable-features', 'FontAccessAPI');
+// Ignore certificate errors for IPTV streams (many use self-signed certs)
+app.commandLine.appendSwitch('ignore-certificate-errors');
+// Disable CORS for external streams
+app.commandLine.appendSwitch('disable-web-security');
 // Disable hardware acceleration if causing issues
 // app.commandLine.appendSwitch('disable-gpu');
 
@@ -34,7 +38,7 @@ function createWindow(): void {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: false // Allow CORS for external IPTV streams
     },
     icon: path.join(__dirname, '../../assets/icon.png'),
     titleBarStyle: 'hidden',
