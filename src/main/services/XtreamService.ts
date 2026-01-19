@@ -222,10 +222,10 @@ export class XtreamService {
   }
 
   /**
-   * Build stream URL for live stream
+   * Build stream URL for live stream (use .m3u8 for HLS compatibility)
    */
-  buildLiveStreamUrl(credentials: XtreamCredentials, streamId: number, extension: string = 'ts'): string {
-    return `${credentials.server}/live/${credentials.username}/${credentials.password}/${streamId}.${extension}`;
+  buildLiveStreamUrl(credentials: XtreamCredentials, streamId: number): string {
+    return `${credentials.server}/live/${credentials.username}/${credentials.password}/${streamId}.m3u8`;
   }
 
   /**

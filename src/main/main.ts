@@ -7,6 +7,11 @@ import { StorageService } from './services/StorageService';
 import { StreamService } from './services/StreamService';
 import { XtreamService } from './services/XtreamService';
 
+// Suppress macOS CoreText font warnings
+app.commandLine.appendSwitch('disable-features', 'FontAccessAPI');
+// Disable hardware acceleration if causing issues
+// app.commandLine.appendSwitch('disable-gpu');
+
 let mainWindow: BrowserWindow | null = null;
 let playlistService: PlaylistService;
 let epgService: EPGService;

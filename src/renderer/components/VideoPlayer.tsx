@@ -49,9 +49,15 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError(null);
     onLoadStart?.();
 
-    const isHLS = url.includes('.m3u8') || url.includes('playlist.m3u8');
+    // Detect HLS streams (.m3u8 or player_api endpoints with series_info)
+    const isHLS = url.includes('.m3u8') || url.includes('m3u8');
+    const isMPEGTS = url.endsWith('.ts');
 
-    if (isHLS && Hls.isSupported()) {
+    console.log('[VideoPlayer] Loading:', url);
+    console.log('[VideoPlayer] Type:', isHLS ? 'HLS' : isMPEGTS ? 'MPEG-TS' : 'Direct');
+
+    // Use HLS.js for HLS and MPEG-TS streams
+    if ((isHLS || isMPEGTS) && Hls.isSupported()) {
       const hls = new Hls({
         enableWorker: true,
         lowLatencyMode: false,
@@ -131,10 +137,29 @@ export const VideoPlayer: React.FC<VideoPlayerProps> = ({
       });
     }
 
-    video.addEventListener('error', () => {
+    video.addEventListener('error', (e) => {
       setIsLoading(false);
-      setError('Failed to load stream');
-      onError?.('Failed to load stream');
+      const mediaError = video.error;
+      let errorMsg = 'Failed to load stream';
+      if (mediaError) {
+        switch (mediaError.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMsg = 'Playback aborted';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMsg = 'Network error - check your connection';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMsg = 'Decoding error - unsupported format';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMsg = 'Stream format not supported';
+            break;
+        }
+      }
+      console.error('[VideoPlayer] Error:', errorMsg, mediaError);
+      setError(errorMsg);
+      onError?.(errorMsg);
     });
   }, [url, autoplay, onError, onLoadStart, onLoadEnd, userAgent, referrer, destroyHls]);
 
