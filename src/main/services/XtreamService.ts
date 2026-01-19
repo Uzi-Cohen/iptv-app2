@@ -155,7 +155,7 @@ export class XtreamService {
       }
 
       const response = await axios.get<XtreamStream[]>(apiUrl, {
-        timeout: 60000,
+        timeout: 120000, // 2 minutes - some providers have thousands of channels
         headers: {
           'User-Agent': 'IPTV-Player/1.0'
         }
@@ -202,26 +202,39 @@ export class XtreamService {
   async importXtreamPlaylist(url: string): Promise<Playlist | null> {
     const credentials = this.parseXtreamUrl(url);
     if (!credentials) {
+      console.error('[Xtream] Failed to parse credentials from URL');
       return null;
     }
 
+    console.log(`[Xtream] Connecting to ${credentials.server}...`);
+    console.log(`[Xtream] Username: ${credentials.username}`);
+
     try {
       // Authenticate
+      console.log('[Xtream] Authenticating...');
+      const startAuth = Date.now();
       const auth = await this.authenticate(credentials);
+      console.log(`[Xtream] Auth took ${Date.now() - startAuth}ms`);
+
       if (!auth) {
-        console.error('Xtream authentication failed');
+        console.error('[Xtream] Authentication failed - check credentials');
         return null;
       }
 
-      console.log(`Authenticated as ${auth.user_info.username}`);
+      console.log(`[Xtream] ✓ Authenticated as ${auth.user_info.username}`);
+      console.log(`[Xtream] Account status: ${auth.user_info.status}`);
+      console.log(`[Xtream] Expires: ${new Date(parseInt(auth.user_info.exp_date) * 1000).toLocaleDateString()}`);
 
       // Get categories and streams
-      const [categories, streams] = await Promise.all([
-        this.getLiveCategories(credentials),
-        this.getLiveStreams(credentials)
-      ]);
+      console.log('[Xtream] Fetching categories...');
+      const startCats = Date.now();
+      const categories = await this.getLiveCategories(credentials);
+      console.log(`[Xtream] ✓ Got ${categories.length} categories in ${Date.now() - startCats}ms`);
 
-      console.log(`Found ${categories.length} categories and ${streams.length} streams`);
+      console.log('[Xtream] Fetching live streams (this may take a while)...');
+      const startStreams = Date.now();
+      const streams = await this.getLiveStreams(credentials);
+      console.log(`[Xtream] ✓ Got ${streams.length} streams in ${Date.now() - startStreams}ms`);
 
       // Create category map
       const categoryMap = new Map<string, string>();
@@ -262,13 +275,16 @@ export class XtreamService {
       }));
 
       // Save to storage
+      console.log('[Xtream] Saving to database...');
+      const startSave = Date.now();
       this.storageService.savePlaylist(playlist);
       this.storageService.saveChannels(channels);
+      console.log(`[Xtream] ✓ Saved in ${Date.now() - startSave}ms`);
 
-      console.log(`Imported ${channels.length} channels from Xtream`);
+      console.log(`[Xtream] ✓ Successfully imported ${channels.length} channels!`);
       return playlist;
     } catch (error) {
-      console.error('Failed to import Xtream playlist:', error);
+      console.error('[Xtream] Failed to import playlist:', error);
       return null;
     }
   }
