@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, dialog, session } from 'electron';
 import path from 'path';
 import { PlaylistService } from './services/PlaylistService';
 import { EPGService } from './services/EPGService';
@@ -197,6 +197,12 @@ function setupIpcHandlers(): void {
 }
 
 app.whenReady().then(() => {
+  // Bypass SSL certificate verification for all requests (needed for IPTV streams)
+  session.defaultSession.setCertificateVerifyProc((_request, callback) => {
+    // 0 = accept the certificate
+    callback(0);
+  });
+
   initializeServices();
   setupIpcHandlers();
   createWindow();
