@@ -206,41 +206,61 @@ export class XtreamService {
       return null;
     }
 
-    console.log(`[Xtream] Connecting to ${credentials.server}...`);
+    console.log(`[Xtream] ════════════════════════════════════════`);
+    console.log(`[Xtream] Connecting to ${credentials.server}`);
     console.log(`[Xtream] Username: ${credentials.username}`);
+    console.log(`[Xtream] ════════════════════════════════════════`);
 
     try {
       // Authenticate
-      console.log('[Xtream] Authenticating...');
+      console.log('[Xtream] 🔐 Authenticating...');
       const startAuth = Date.now();
       const auth = await this.authenticate(credentials);
-      console.log(`[Xtream] Auth took ${Date.now() - startAuth}ms`);
 
       if (!auth) {
-        console.error('[Xtream] Authentication failed - check credentials');
+        console.error('[Xtream] ❌ Authentication failed - check credentials');
         return null;
       }
 
-      console.log(`[Xtream] ✓ Authenticated as ${auth.user_info.username}`);
-      console.log(`[Xtream] Account status: ${auth.user_info.status}`);
-      console.log(`[Xtream] Expires: ${new Date(parseInt(auth.user_info.exp_date) * 1000).toLocaleDateString()}`);
+      console.log(`[Xtream] ✓ Authenticated in ${Date.now() - startAuth}ms`);
+      console.log(`[Xtream]   User: ${auth.user_info.username}`);
+      console.log(`[Xtream]   Status: ${auth.user_info.status}`);
+      console.log(`[Xtream]   Expires: ${new Date(parseInt(auth.user_info.exp_date) * 1000).toLocaleDateString()}`);
 
-      // Get categories and streams
-      console.log('[Xtream] Fetching categories...');
-      const startCats = Date.now();
+      // Get categories
+      console.log('[Xtream] 📁 Fetching categories...');
       const categories = await this.getLiveCategories(credentials);
-      console.log(`[Xtream] ✓ Got ${categories.length} categories in ${Date.now() - startCats}ms`);
-
-      console.log('[Xtream] Fetching live streams (this may take a while)...');
-      const startStreams = Date.now();
-      const streams = await this.getLiveStreams(credentials);
-      console.log(`[Xtream] ✓ Got ${streams.length} streams in ${Date.now() - startStreams}ms`);
+      console.log(`[Xtream] ✓ Found ${categories.length} categories`);
 
       // Create category map
       const categoryMap = new Map<string, string>();
       for (const cat of categories) {
         categoryMap.set(cat.category_id, cat.category_name);
       }
+
+      // Fetch streams by category for progress tracking
+      console.log('[Xtream] 📺 Fetching channels by category...');
+      const allStreams: XtreamStream[] = [];
+      const totalCategories = categories.length;
+      const startTime = Date.now();
+
+      for (let i = 0; i < categories.length; i++) {
+        const category = categories[i];
+        const progress = Math.round(((i + 1) / totalCategories) * 100);
+        const progressBar = this.createProgressBar(progress);
+
+        console.log(`[Xtream] ${progressBar} ${progress}% - Loading "${category.category_name}" (${i + 1}/${totalCategories})`);
+
+        try {
+          const streams = await this.getLiveStreams(credentials, category.category_id);
+          allStreams.push(...streams);
+        } catch (err) {
+          console.warn(`[Xtream] ⚠ Failed to load category "${category.category_name}"`);
+        }
+      }
+
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
+      console.log(`[Xtream] ✓ Loaded ${allStreams.length} channels in ${elapsed}s`);
 
       // Create playlist
       const playlistId = uuidv4();
@@ -250,43 +270,68 @@ export class XtreamService {
         id: playlistId,
         name: `Xtream - ${credentials.server.replace(/https?:\/\//, '')}`,
         url,
-        channelCount: streams.length,
+        channelCount: allStreams.length,
         lastUpdated: now,
         createdAt: now
       };
 
-      // Convert streams to channels
-      const channels: Channel[] = streams.map((stream, index) => ({
-        id: uuidv4(),
-        name: stream.name,
-        url: this.buildStreamUrl(credentials, stream.stream_id),
-        logo: stream.stream_icon || undefined,
-        group: categoryMap.get(stream.category_id) || 'Uncategorized',
-        tvgId: stream.epg_channel_id || undefined,
-        tvgName: stream.name,
-        tvgLogo: stream.stream_icon || undefined,
-        playlistId,
-        isFavorite: false,
-        catchup: stream.tv_archive ? {
-          type: 'default' as const,
-          days: stream.tv_archive_duration || 7,
-          source: undefined
-        } : undefined
-      }));
+      // Convert streams to channels with progress
+      console.log('[Xtream] 🔄 Processing channels...');
+      const channels: Channel[] = [];
+      const totalStreams = allStreams.length;
+
+      for (let i = 0; i < allStreams.length; i++) {
+        const stream = allStreams[i];
+
+        // Log progress every 500 channels
+        if (i % 500 === 0 || i === totalStreams - 1) {
+          const progress = Math.round(((i + 1) / totalStreams) * 100);
+          console.log(`[Xtream] Processing: ${i + 1}/${totalStreams} channels (${progress}%)`);
+        }
+
+        channels.push({
+          id: uuidv4(),
+          name: stream.name,
+          url: this.buildStreamUrl(credentials, stream.stream_id),
+          logo: stream.stream_icon || undefined,
+          group: categoryMap.get(stream.category_id) || 'Uncategorized',
+          tvgId: stream.epg_channel_id || undefined,
+          tvgName: stream.name,
+          tvgLogo: stream.stream_icon || undefined,
+          playlistId,
+          isFavorite: false,
+          catchup: stream.tv_archive ? {
+            type: 'default' as const,
+            days: stream.tv_archive_duration || 7,
+            source: undefined
+          } : undefined
+        });
+      }
 
       // Save to storage
-      console.log('[Xtream] Saving to database...');
+      console.log('[Xtream] 💾 Saving to database...');
       const startSave = Date.now();
       this.storageService.savePlaylist(playlist);
       this.storageService.saveChannels(channels);
       console.log(`[Xtream] ✓ Saved in ${Date.now() - startSave}ms`);
 
-      console.log(`[Xtream] ✓ Successfully imported ${channels.length} channels!`);
+      console.log(`[Xtream] ════════════════════════════════════════`);
+      console.log(`[Xtream] ✅ SUCCESS! Imported ${channels.length} channels`);
+      console.log(`[Xtream] ════════════════════════════════════════`);
       return playlist;
     } catch (error) {
-      console.error('[Xtream] Failed to import playlist:', error);
+      console.error('[Xtream] ❌ Failed to import playlist:', error);
       return null;
     }
+  }
+
+  /**
+   * Create a visual progress bar
+   */
+  private createProgressBar(percent: number): string {
+    const filled = Math.round(percent / 5);
+    const empty = 20 - filled;
+    return `[${'█'.repeat(filled)}${'░'.repeat(empty)}]`;
   }
 
   /**
