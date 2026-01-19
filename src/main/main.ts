@@ -8,9 +8,11 @@ import { StreamService } from './services/StreamService';
 import { XtreamService } from './services/XtreamService';
 
 // Suppress macOS CoreText font warnings
-app.commandLine.appendSwitch('disable-features', 'FontAccessAPI');
+app.commandLine.appendSwitch('disable-features', 'FontAccessAPI,BlockInsecurePrivateNetworkRequests');
 // Ignore certificate errors for IPTV streams (many use self-signed certs)
 app.commandLine.appendSwitch('ignore-certificate-errors');
+// Allow insecure content (HTTP streams)
+app.commandLine.appendSwitch('allow-running-insecure-content');
 // Disable CORS for external streams
 app.commandLine.appendSwitch('disable-web-security');
 // Disable hardware acceleration if causing issues
