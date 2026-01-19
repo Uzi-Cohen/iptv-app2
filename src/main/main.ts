@@ -24,31 +24,25 @@ let storageService: StorageService;
 let streamService: StreamService;
 let xtreamService: XtreamService;
 
-const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
+const isDev = process.env.NODE_ENV === 'development';
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1400,
     height: 900,
-    minWidth: 1000,
-    minHeight: 700,
-    frame: false,
-    backgroundColor: '#0f172a',
+    minWidth: 800,
+    minHeight: 600,
+    backgroundColor: '#1f2937',
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
       webSecurity: false // Allow CORS for external IPTV streams
     },
-    icon: path.join(__dirname, '../../assets/icon.png'),
-    titleBarStyle: 'hidden',
-    titleBarOverlay: {
-      color: '#0f172a',
-      symbolColor: '#94a3b8',
-      height: 40
-    }
+    icon: path.join(__dirname, '../../assets/icon.png')
   });
 
+  // Try dev server first, fallback to production build
   if (isDev) {
     mainWindow.loadURL('http://localhost:3000');
     mainWindow.webContents.openDevTools();
