@@ -175,6 +175,10 @@ export class StorageService {
     }
   }
 
+  getFavoriteIds(): string[] {
+    return this.store.get('favorites', []);
+  }
+
   getFavorites(): Channel[] {
     const channels = this.store.get('channels', []);
     const favorites = this.store.get('favorites', []);
@@ -273,10 +277,13 @@ export class StorageService {
 
   // History methods
   addToHistory(channelId: string): void {
-    const history = this.store.get('history', []);
     const channel = this.getChannel(channelId);
-
     if (!channel) return;
+    this.addToHistoryWithChannel(channelId, channel);
+  }
+
+  addToHistoryWithChannel(channelId: string, channel: Channel): void {
+    const history = this.store.get('history', []);
 
     // Remove existing entry for this channel
     const filtered = history.filter(h => h.channelId !== channelId);

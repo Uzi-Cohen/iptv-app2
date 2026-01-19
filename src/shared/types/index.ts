@@ -7,6 +7,42 @@ export interface Playlist {
   channelCount: number;
   lastUpdated: string;
   createdAt: string;
+  // Xtream-specific fields for lazy loading
+  xtream?: XtreamPlaylistData;
+}
+
+// Xtream types for lazy loading
+export interface XtreamCredentials {
+  server: string;
+  username: string;
+  password: string;
+}
+
+export interface XtreamPlaylistData {
+  credentials: XtreamCredentials;
+  categories: XtreamCategory[];
+  streams: XtreamStream[];
+}
+
+export interface XtreamCategory {
+  category_id: string;
+  category_name: string;
+  parent_id: number;
+}
+
+export interface XtreamStream {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  epg_channel_id: string;
+  added: string;
+  category_id: string;
+  custom_sid: string;
+  tv_archive: number;
+  direct_source: string;
+  tv_archive_duration: number;
 }
 
 // Channel types
