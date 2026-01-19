@@ -1,0 +1,82 @@
+{
+  "name": "iptv-player",
+  "version": "1.0.0",
+  "description": "A powerful, intuitive IPTV streaming app supporting M3U playlists, EPG, and multiple streaming protocols",
+  "main": "dist/main/main.js",
+  "scripts": {
+    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
+    "dev:renderer": "vite",
+    "dev:main": "tsc -p tsconfig.main.json && electron .",
+    "build": "npm run build:renderer && npm run build:main",
+    "build:renderer": "vite build",
+    "build:main": "tsc -p tsconfig.main.json",
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder",
+    "lint": "eslint src --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "iptv",
+    "m3u",
+    "streaming",
+    "electron",
+    "hls",
+    "epg",
+    "tv"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@iptv/playlist": "^1.1.0",
+    "axios": "^1.6.7",
+    "better-sqlite3": "^9.4.3",
+    "electron-store": "^8.1.0",
+    "epg-parser": "^0.4.0",
+    "hls.js": "^1.5.7",
+    "pako": "^2.1.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.11.19",
+    "@types/pako": "^2.0.3",
+    "@types/react": "^18.2.56",
+    "@types/react-dom": "^18.2.19",
+    "@types/uuid": "^9.0.8",
+    "@vitejs/plugin-react": "^4.2.1",
+    "autoprefixer": "^10.4.17",
+    "concurrently": "^8.2.2",
+    "electron": "^28.2.2",
+    "electron-builder": "^24.13.3",
+    "eslint": "^8.56.0",
+    "postcss": "^8.4.35",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tailwindcss": "^3.4.1",
+    "typescript": "^5.3.3",
+    "vite": "^5.1.4"
+  },
+  "build": {
+    "appId": "com.iptv.player",
+    "productName": "IPTV Player",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "node_modules/**/*"
+    ],
+    "mac": {
+      "category": "public.app-category.entertainment",
+      "target": ["dmg", "zip"]
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Video"
+    }
+  }
+}
