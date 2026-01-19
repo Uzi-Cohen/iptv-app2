@@ -214,7 +214,11 @@ export class ChannelService {
     const playlists = this.storageService.getAllPlaylists();
     for (const playlist of playlists) {
       if (playlist.xtream) {
-        count += playlist.xtream.streams.length;
+        // New format with separate content types
+        const live = playlist.xtream.liveStreams?.length || 0;
+        const vod = playlist.xtream.vodStreams?.length || 0;
+        const series = playlist.xtream.series?.length || 0;
+        count += live + vod + series;
       }
     }
 

@@ -20,8 +20,15 @@ export interface XtreamCredentials {
 
 export interface XtreamPlaylistData {
   credentials: XtreamCredentials;
-  categories: XtreamCategory[];
-  streams: XtreamStream[];
+  // Live TV
+  liveCategories: XtreamCategory[];
+  liveStreams: XtreamStream[];
+  // VOD (Movies)
+  vodCategories: XtreamCategory[];
+  vodStreams: XtreamVOD[];
+  // Series (TV Shows)
+  seriesCategories: XtreamCategory[];
+  series: XtreamSeries[];
 }
 
 export interface XtreamCategory {
@@ -44,6 +51,42 @@ export interface XtreamStream {
   direct_source: string;
   tv_archive_duration: number;
 }
+
+export interface XtreamVOD {
+  num: number;
+  name: string;
+  stream_type: string;
+  stream_id: number;
+  stream_icon: string;
+  rating: string;
+  rating_5based: number;
+  added: string;
+  category_id: string;
+  container_extension: string;
+  custom_sid: string;
+  direct_source: string;
+}
+
+export interface XtreamSeries {
+  num: number;
+  name: string;
+  series_id: number;
+  cover: string;
+  plot: string;
+  cast: string;
+  director: string;
+  genre: string;
+  releaseDate: string;
+  last_modified: string;
+  rating: string;
+  rating_5based: number;
+  backdrop_path: string[];
+  youtube_trailer: string;
+  episode_run_time: string;
+  category_id: string;
+}
+
+export type XtreamContentType = 'live' | 'vod' | 'series';
 
 // Channel types
 export interface Channel {
