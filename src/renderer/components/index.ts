@@ -1,7 +1,17 @@
-export { default as VideoPlayer } from './VideoPlayer';
-export { default as ChannelList } from './ChannelList';
-export { default as Sidebar } from './Sidebar';
-export { default as TitleBar } from './TitleBar';
-export { default as EPGGuide } from './EPGGuide';
-export { default as Settings } from './Settings';
-export { default as AddPlaylistModal } from './AddPlaylistModal';
+import VideoPlayer from './VideoPlayer';
+import ChannelList from './ChannelList';
+import Sidebar from './Sidebar';
+import TitleBar from './TitleBar';
+import EPGGuide from './EPGGuide';
+import Settings from './Settings';
+import AddPlaylistModal from './AddPlaylistModal';
+
+export {
+  VideoPlayer,
+  ChannelList,
+  Sidebar,
+  TitleBar,
+  EPGGuide,
+  Settings,
+  AddPlaylistModal
+};

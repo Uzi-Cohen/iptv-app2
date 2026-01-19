@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "A powerful, intuitive IPTV streaming app supporting M3U playlists, EPG, and multiple streaming protocols",
   "main": "dist/main/main.js",
+  "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
     "dev:renderer": "vite",
@@ -28,10 +29,8 @@
   "author": "",
   "license": "MIT",
   "dependencies": {
-    "@iptv/playlist": "^1.1.0",
     "axios": "^1.6.7",
     "electron-store": "^8.1.0",
-    "epg-parser": "^0.4.0",
     "hls.js": "^1.5.7",
     "pako": "^2.1.0",
     "uuid": "^9.0.1"
@@ -47,7 +46,6 @@
     "concurrently": "^8.2.2",
     "electron": "^28.2.2",
     "electron-builder": "^24.13.3",
-    "eslint": "^8.56.0",
     "postcss": "^8.4.35",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

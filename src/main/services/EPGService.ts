@@ -1,51 +1,36 @@
 import axios from 'axios';
 import * as pako from 'pako';
 import { v4 as uuidv4 } from 'uuid';
-import { parse as parseEPG } from 'epg-parser';
 import { EPGSource, EPGProgram, EPGChannel } from '../../shared/types';
 import { StorageService } from './StorageService';
 
-interface ParsedEPGChannel {
+interface ParsedChannel {
   id: string;
-  displayName: { value: string }[];
-  icon?: { src: string }[];
-  url?: { value: string }[];
+  displayName: string;
+  icon?: string;
 }
 
-interface ParsedEPGProgram {
+interface ParsedProgram {
   channel: string;
-  title: { value: string }[];
-  desc?: { value: string }[];
-  category?: { value: string }[];
-  icon?: { src: string }[];
-  rating?: { value: string }[];
-  episodeNum?: { value: string; system?: string }[];
+  title: string;
+  description?: string;
+  category?: string;
   start: string;
   stop: string;
-}
-
-interface ParsedEPG {
-  channels: ParsedEPGChannel[];
-  programs: ParsedEPGProgram[];
+  icon?: string;
 }
 
 export class EPGService {
   private epgChannelMap: Map<string, EPGChannel> = new Map();
 
-  constructor(private storageService: StorageService) {
-    this.initializeChannelMap();
-  }
-
-  private initializeChannelMap(): void {
-    // This would be populated from stored EPG data
-  }
+  constructor(private storageService: StorageService) {}
 
   async importEPG(url: string): Promise<boolean> {
     try {
       console.log('Importing EPG from:', url);
 
       const response = await axios.get(url, {
-        timeout: 120000, // 2 minutes for large EPG files
+        timeout: 120000,
         headers: {
           'User-Agent': 'IPTV-Player/1.0',
           'Accept-Encoding': 'gzip, deflate'
@@ -56,7 +41,7 @@ export class EPGService {
       let content: string;
       const data = new Uint8Array(response.data);
 
-      // Check if content is gzipped (magic bytes: 1f 8b)
+      // Check if content is gzipped
       if (data[0] === 0x1f && data[1] === 0x8b) {
         try {
           const decompressed = pako.inflate(data);
@@ -76,19 +61,82 @@ export class EPGService {
     }
   }
 
+  /**
+   * Simple XMLTV parser using regex
+   */
+  private parseXMLTV(xml: string): { channels: ParsedChannel[]; programs: ParsedProgram[] } {
+    const channels: ParsedChannel[] = [];
+    const programs: ParsedProgram[] = [];
+
+    // Parse channels
+    const channelRegex = /<channel\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/channel>/gi;
+    let channelMatch;
+    while ((channelMatch = channelRegex.exec(xml)) !== null) {
+      const id = channelMatch[1];
+      const content = channelMatch[2];
+
+      const displayNameMatch = content.match(/<display-name[^>]*>([^<]+)<\/display-name>/i);
+      const iconMatch = content.match(/<icon\s+src="([^"]+)"/i);
+
+      channels.push({
+        id,
+        displayName: displayNameMatch ? this.decodeXmlEntities(displayNameMatch[1]) : id,
+        icon: iconMatch ? iconMatch[1] : undefined
+      });
+    }
+
+    // Parse programs
+    const programRegex = /<programme\s+start="([^"]+)"\s+stop="([^"]+)"\s+channel="([^"]+)"[^>]*>([\s\S]*?)<\/programme>/gi;
+    let programMatch;
+    while ((programMatch = programRegex.exec(xml)) !== null) {
+      const start = programMatch[1];
+      const stop = programMatch[2];
+      const channel = programMatch[3];
+      const content = programMatch[4];
+
+      const titleMatch = content.match(/<title[^>]*>([^<]+)<\/title>/i);
+      const descMatch = content.match(/<desc[^>]*>([^<]+)<\/desc>/i);
+      const categoryMatch = content.match(/<category[^>]*>([^<]+)<\/category>/i);
+      const iconMatch = content.match(/<icon\s+src="([^"]+)"/i);
+
+      if (titleMatch) {
+        programs.push({
+          channel,
+          title: this.decodeXmlEntities(titleMatch[1]),
+          description: descMatch ? this.decodeXmlEntities(descMatch[1]) : undefined,
+          category: categoryMatch ? this.decodeXmlEntities(categoryMatch[1]) : undefined,
+          start,
+          stop,
+          icon: iconMatch ? iconMatch[1] : undefined
+        });
+      }
+    }
+
+    return { channels, programs };
+  }
+
+  private decodeXmlEntities(str: string): string {
+    return str
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&apos;/g, "'")
+      .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(parseInt(num, 10)));
+  }
+
   private async parseAndSaveEPG(content: string, url: string): Promise<boolean> {
     try {
-      // Parse the XMLTV content
-      const parsed: ParsedEPG = parseEPG(content);
+      const parsed = this.parseXMLTV(content);
 
-      if (!parsed.programs || parsed.programs.length === 0) {
+      if (parsed.programs.length === 0) {
         console.warn('No programs found in EPG');
         return false;
       }
 
-      console.log(`Parsed ${parsed.channels?.length || 0} channels and ${parsed.programs.length} programs`);
+      console.log(`Parsed ${parsed.channels.length} channels and ${parsed.programs.length} programs`);
 
-      // Clear old programs (older than 1 day ago)
+      // Clear old programs
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       this.storageService.clearOldEPGPrograms(yesterday);
@@ -101,25 +149,40 @@ export class EPGService {
       };
       this.storageService.saveEPGSource(source);
 
-      // Build channel map for lookups
-      if (parsed.channels) {
-        for (const channel of parsed.channels) {
-          const epgChannel: EPGChannel = {
-            id: channel.id,
-            displayName: channel.displayName?.[0]?.value || channel.id,
-            icon: channel.icon?.[0]?.src,
-            url: channel.url?.[0]?.value
-          };
-          this.epgChannelMap.set(channel.id.toLowerCase(), epgChannel);
-        }
+      // Build channel map
+      for (const channel of parsed.channels) {
+        const epgChannel: EPGChannel = {
+          id: channel.id,
+          displayName: channel.displayName,
+          icon: channel.icon
+        };
+        this.epgChannelMap.set(channel.id.toLowerCase(), epgChannel);
       }
 
-      // Convert programs to our format
-      const programs: EPGProgram[] = parsed.programs.map(program =>
-        this.convertToEPGProgram(program)
-      ).filter((p): p is EPGProgram => p !== null);
+      // Convert programs
+      const programs: EPGProgram[] = [];
+      const now = new Date();
 
-      // Save in batches to avoid memory issues
+      for (const program of parsed.programs) {
+        const start = this.parseEPGDate(program.start);
+        const end = this.parseEPGDate(program.stop);
+
+        if (!start || !end) continue;
+        if (end < now) continue; // Skip past programs
+
+        programs.push({
+          id: uuidv4(),
+          channelId: program.channel,
+          title: program.title,
+          description: program.description,
+          start,
+          end,
+          category: program.category,
+          icon: program.icon
+        });
+      }
+
+      // Save in batches
       const batchSize = 5000;
       for (let i = 0; i < programs.length; i += batchSize) {
         const batch = programs.slice(i, i + batchSize);
@@ -134,76 +197,16 @@ export class EPGService {
     }
   }
 
-  private convertToEPGProgram(program: ParsedEPGProgram): EPGProgram | null {
-    try {
-      const start = this.parseEPGDate(program.start);
-      const stop = this.parseEPGDate(program.stop);
-
-      if (!start || !stop) {
-        return null;
-      }
-
-      // Skip programs that have already ended
-      if (stop < new Date()) {
-        return null;
-      }
-
-      // Parse episode number if available
-      let season: number | undefined;
-      let episode: number | undefined;
-      let episodeNum: string | undefined;
-
-      if (program.episodeNum) {
-        for (const ep of program.episodeNum) {
-          if (ep.system === 'xmltv_ns') {
-            // Format: season.episode.part (0-indexed)
-            const parts = ep.value.split('.');
-            if (parts[0]) {
-              const s = parseInt(parts[0], 10);
-              if (!isNaN(s)) season = s + 1;
-            }
-            if (parts[1]) {
-              const e = parseInt(parts[1], 10);
-              if (!isNaN(e)) episode = e + 1;
-            }
-          } else if (ep.system === 'onscreen') {
-            episodeNum = ep.value;
-          }
-        }
-      }
-
-      return {
-        id: uuidv4(),
-        channelId: program.channel,
-        title: program.title?.[0]?.value || 'Unknown',
-        description: program.desc?.[0]?.value,
-        start,
-        end: stop,
-        category: program.category?.[0]?.value,
-        icon: program.icon?.[0]?.src,
-        rating: program.rating?.[0]?.value,
-        episodeNum,
-        season,
-        episode
-      };
-    } catch (error) {
-      console.error('Error converting EPG program:', error);
-      return null;
-    }
-  }
-
   private parseEPGDate(dateStr: string): Date | null {
     try {
       // XMLTV date format: YYYYMMDDHHmmss +HHMM
       const match = dateStr.match(/^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})\s*([+-]\d{4})?$/);
 
       if (!match) {
-        // Try ISO format
         return new Date(dateStr);
       }
 
       const [, year, month, day, hour, minute, second, tz] = match;
-
       let isoStr = `${year}-${month}-${day}T${hour}:${minute}:${second}`;
 
       if (tz) {
@@ -223,7 +226,6 @@ export class EPGService {
     const to = new Date();
     to.setHours(to.getHours() + hoursAhead);
 
-    // Try different channel ID formats
     const channelIds = this.getPossibleChannelIds(channelId);
 
     for (const id of channelIds) {
@@ -250,17 +252,11 @@ export class EPGService {
   }
 
   private getPossibleChannelIds(channelId: string): string[] {
-    // Different ways a channel might be identified in EPG
-    const ids: string[] = [channelId];
+    const ids: string[] = [channelId, channelId.toLowerCase()];
 
-    // Try lowercase
-    ids.push(channelId.toLowerCase());
-
-    // Try with common suffixes
     ids.push(`${channelId}.us`);
     ids.push(`${channelId}.uk`);
 
-    // Try without common domain suffixes
     const withoutSuffix = channelId.replace(/\.(com|us|uk|tv|net)$/i, '');
     if (withoutSuffix !== channelId) {
       ids.push(withoutSuffix);

@@ -56,10 +56,16 @@ interface Channel {
   group?: string;
   tvgId?: string;
   tvgName?: string;
+  tvgLogo?: string;
   playlistId: string;
   isFavorite: boolean;
   userAgent?: string;
   referrer?: string;
+  catchup?: {
+    type: 'default' | 'flussonic' | 'xc' | 'shift';
+    days?: number;
+    source?: string;
+  };
 }
 
 interface ChannelFilters {

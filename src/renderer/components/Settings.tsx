@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 
-interface Settings {
+interface SettingsData {
   theme: 'dark' | 'light' | 'system';
   autoplay: boolean;
   volume: number;
@@ -24,9 +24,9 @@ interface Playlist {
 }
 
 interface SettingsProps {
-  settings: Settings;
+  settings: SettingsData;
   playlists: Playlist[];
-  onSettingsChange: (settings: Partial<Settings>) => void;
+  onSettingsChange: (settings: Partial<SettingsData>) => void;
   onDeletePlaylist: (id: string) => void;
   onRefreshPlaylist: (id: string) => void;
   onImportEPG: (url: string) => Promise<boolean>;
