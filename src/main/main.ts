@@ -5,6 +5,7 @@ import { EPGService } from './services/EPGService';
 import { ChannelService } from './services/ChannelService';
 import { StorageService } from './services/StorageService';
 import { StreamService } from './services/StreamService';
+import { XtreamService } from './services/XtreamService';
 
 let mainWindow: BrowserWindow | null = null;
 let playlistService: PlaylistService;
@@ -12,6 +13,7 @@ let epgService: EPGService;
 let channelService: ChannelService;
 let storageService: StorageService;
 let streamService: StreamService;
+let xtreamService: XtreamService;
 
 const isDev = process.env.NODE_ENV === 'development' || !app.isPackaged;
 
@@ -62,6 +64,7 @@ function initializeServices(): void {
   epgService = new EPGService(storageService);
   channelService = new ChannelService(storageService, playlistService, epgService);
   streamService = new StreamService();
+  xtreamService = new XtreamService(storageService);
 }
 
 function setupIpcHandlers(): void {
@@ -78,6 +81,12 @@ function setupIpcHandlers(): void {
 
   // Playlist management
   ipcMain.handle('playlist:import', async (_, url: string) => {
+    // Check if this is an Xtream Codes URL
+    if (xtreamService.isXtreamUrl(url)) {
+      console.log('Detected Xtream Codes URL, using Xtream API');
+      return await xtreamService.importXtreamPlaylist(url);
+    }
+    // Standard M3U playlist
     return await playlistService.importPlaylist(url);
   });
 
